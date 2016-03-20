@@ -1,0 +1,74 @@
+## title: "Part 1: Simulation using the exponential distribution"
+author: "Ramaji" 
+;
+date: "19-MAR-2016"
+---
+
+#*Project for the "Statistical Inference" course*
+
+### Comparing the simulated mean and variance with the theoretical values
+
+Simulate 1000 groups of 40 exponentials with $\lambda = 0.2$,using a fixed seed, and comparing the distribution of the simulated mean
+and variance with the theoretical value of $1 / \lambda$:
+
+```{r results='asis'}
+nsim <- 1000
+nvals <- 40
+lambda <- 0.2
+set.seed(123)
+simdata <- t(replicate(nsim, rexp(nvals, lambda)))
+df <- data.frame(Mean=c(mean(rowMeans(simdata)), 1/lambda),
+                 Variance=c(mean(apply(simdata, 1, var)), 1/lambda^2))
+rownames(df) <- c("Simulated", "Theoretical")
+cat("Mean for Simulataneous=",df$Mean[1]," / Theoritical:",df$Mean[2])
+cat("Variance for Simultaneous=",df$Variance[1]," / Theoritical:",df$Variance[2])
+```
+
+The simulated value and theoretical value are very close. This is as expected by CLT.
+
+### Assessing if the simulated values are approximately normal
+
+Also, according to the CLT, the distribution of the simulated means should tend to normal. To check this let us normalize the vectors and compare it to a $N(0,1)$ distribution.
+
+```{r}
+library(ggplot2)
+meanvals <- rowMeans(simdata)
+zmean <- (meanvals - mean(meanvals)) / sd(meanvals)
+qplot(zmean, geom = "blank") +
+    geom_line(aes(y = ..density.., colour = 'Empirical'), stat = 'density') +  
+    stat_function(fun = dnorm, aes(colour = 'Normal')) +                       
+    geom_histogram(aes(y = ..density..), alpha = 0.4, binwidth=.35) +
+    geom_vline(xintercept=0, colour="red", linetype="longdash") +
+    scale_colour_manual(name = 'Density', values = c('red', 'blue')) +
+    ylab("Density") + xlab("z") + ggtitle("Mean values distribution") +
+    theme_bw() + theme(legend.position = c(0.85, 0.85))
+```
+
+### Evaluating the coverage of the confidence interval
+
+Theoretically, a 95% confidence interval should contain, if we simulate a big number of them, the mean value for the exponential distribution ($1 / \lambda$) 95% of the time.
+
+```{r}
+set.seed(123)
+lambda <- 0.2
+# checks for each simulation if the mean is in the confidence interval
+conf <- function(lambda) {   
+    ehats <- rexp(1000, lambda)
+    se <- sd(ehats)/sqrt(1000)
+    ll <- mean(ehats) - 1.96 * se
+    ul <- mean(ehats) + 1.96 * se
+    (ll < 1/lambda & ul > 1/lambda)   #Returns the limits
+}
+# estimate the mean in each round of simulations
+avgs <- function(lambda) {
+    vals <- replicate(100, conf(lambda))
+    mean(vals) # Returns the mean
+}
+# perform the simulation
+sim <- replicate(100, avgs(lambda))
+mn<-mean(sim)
+```
+```{r echo=FALSE}
+cat("Theoritical CI:",mn)
+```
+This shows the resulting theoritical confidence interval is close to the expected 95%.
